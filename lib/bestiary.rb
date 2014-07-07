@@ -519,9 +519,11 @@ module SES
     # =========================================================================
     # END CONFIGURATION
     # =========================================================================
+    # Register this script with the SES Core.
+    Description = Script.new(:Bestiary, 1.0, :Enelvon)
+    Register.enter(Description)
   end
 end
-                    ($imported ||= {})['SES - Bestiary'] = 1.0
 # Basic Enemy class for RPG Maker VX Ace.
 class RPG::Enemy < RPG::BaseItem
   
