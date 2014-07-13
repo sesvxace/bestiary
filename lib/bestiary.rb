@@ -1,5 +1,5 @@
-#--
-# Bestiary v1.0 by Enelvon
+﻿#--
+# Bestiary v1.1 by Enelvon
 # =============================================================================
 # 
 # Summary
@@ -422,6 +422,10 @@ module SES
     # they have been encountered.
     RequireEnemyKnown = true
     
+    # An array of enemies who will never be shown in the bestiary. Useful for
+    # dividers. This can be populated with single IDs (5) or Ranges (5..8).
+    HiddenEnemies = [3, 6..10]
+    
     # Advanced configuration for unknown drop items.
     RequireDropKnown = {
       # If this is set to true, the item's name will not be visible unless it
@@ -519,6 +523,19 @@ module SES
     # =========================================================================
     # END CONFIGURATION
     # =========================================================================
+    
+    # Gets a list of enemies who should be displayed in the bestiary.
+    #
+    # @return [Array] a list of enemy IDs
+    def self.get_enemy_list
+      return @list if @list
+      @list = []
+      $data_enemies.compact.each do |e|
+        @list << e.id if !HiddenEnemies.any? { |i| i === e.id }
+      end
+      return @list
+    end
+    
     # Register this script with the SES Core.
     Description = Script.new(:Bestiary, 1.0, :Enelvon)
     Register.enter(Description)
@@ -582,7 +599,7 @@ class RPG::Enemy < RPG::BaseItem
   # @param param [Symbol, String] the parameter whose data is being requested
   def bestiary_parameter(param)
     scan_ses_notes unless @bestiary_parameters
-    return @bestiary_parameters[param]
+    return @bestiary_parameters[param] || (send(param) rescue nil)
   end
   
   # Defines getter methods for the various variables grabbed from Notes boxes.
@@ -1040,28 +1057,15 @@ class Bestiary < Window_Book
     else return super end
   end
   
-  # Turns the page back to the previous enemy.
-  def previous_enemy
-    @id -= 1 and (@id = $data_enemies.size - 1 if @id <= 0)
-    if RequireEnemyKnown && !$game_party.knows_bestiary_enemy?(@id)
-      last_id = @id and @id -= 1
-      until $game_party.knows_bestiary_enemy?(@id) || @id == last_id
-        @id -= 1 and (@id = $data_enemies.size - 1 if @id <= 0)
-      end
-    end
-    @contents_heights.clear
-    @enemy = Game_Enemy.new(0, @id) and @changed = true and refresh
-  end
-  
-  # Turns the page forward to the next enemy.
-  def next_enemy
-    @id += 1 and (@id = 1 if @id >= $data_enemies.size)
-    if RequireEnemyKnown && !$game_party.knows_bestiary_enemy?(@id)
-      last_id = @id and @id += 1
-      until $game_party.knows_bestiary_enemy?(@id) || @id == last_id
-        @id += 1 and (@id = 1 if @id >= $data_enemies.size)
-      end
-    end
+  # Turns the page.
+  def turn_page(num)
+    size, last_id = $data_enemies.size, @id
+    begin
+      @id += num
+      (@id = size - 1 if @id <= 0) or (@id = 1 if @id >= size)
+    end until SES::Bestiary.get_enemy_list.include?(@id) &&
+              ($game_party.knows_bestiary_enemy?(@id) || @id == last_id) &&
+              !(RequireEnemyKnown && !$game_party.knows_bestiary_enemy?(@id))
     @contents_heights.clear
     @enemy = Game_Enemy.new(0, @id) and @changed = true and refresh
   end
@@ -1069,7 +1073,7 @@ class Bestiary < Window_Book
   # Updates the index of the Bestiary scene, if it exists.
   def update_scene_index
     if (scene = SceneManager.stack.find {|scene| scene.is_a?(Scene_Bestiary) })
-      scene.set_index(@id - 1)
+      scene.set_index(SES::Bestiary.get_enemy_list.index(@id))
     end
   end
   
@@ -1077,10 +1081,10 @@ class Bestiary < Window_Book
   def process_cursor_move
     return unless super && @allow_change_enemy
     if Input.trigger?(:L)
-      previous_enemy
+      turn_page(-1)
       update_scene_index
     elsif Input.trigger?(:R)
-      next_enemy
+      turn_page(1)
       update_scene_index
     end
     return true
@@ -1109,12 +1113,12 @@ class Window_BestiaryEnemyList < Window_Selectable
   # Gets the number of items in the window.
   #
   # @return [Integer] the number of items in the window
-  def item_max() $data_enemies.size end
+  def item_max() SES::Bestiary.get_enemy_list.size end
   
   # Gets the currently selected enemy.
   #
   # @return [RPG::Enemy] the enemy whose index is currently selected
-  def item() $data_enemies[@index+1] end
+  def item() $data_enemies[SES::Bestiary.get_enemy_list[@index]] end
   
   # Checks if the currently selected item is enabled.
   #
@@ -1128,20 +1132,28 @@ class Window_BestiaryEnemyList < Window_Selectable
   # @return [TrueClass, FalseClass] the enabled status of the item
   def enable?(index)
     return true unless SES::Bestiary::RequireEnemyKnown
-    return true if $game_party.bestiary_known_data[:ene][index+1]
+    return true if $game_party.bestiary_known_data[:ene][item.id]
     return false
   end
   
   # Creates the data list for the window.
   def make_item_list
     if SES::Bestiary::RequireEnemyKnown
-      @data = ['???'] * $data_enemies.size
-      $game_party.bestiary_known_data[:ene].each_key do |enemy|
-        enemy = $data_enemies[enemy]
-        @data[enemy.id-1] = "#{enemy.id}: #{enemy.name}"
+      @data = ['???'] * SES::Bestiary.get_enemy_list.size
+      $game_party.bestiary_known_data[:ene].each_key do |e|
+        next unless SES::Bestiary.get_enemy_list.index(e)
+        e = $data_enemies[e]
+        id, name = e.bestiary_parameter(:id), e.bestiary_parameter(:name)
+        @data[SES::Bestiary.get_enemy_list.index(e.id)] = "#{id}: #{name}"
       end
     else
-      @data = $data_enemies.collect { |enemy| enemy.bestiary_parameter(:name) }
+      @data = []
+      $data_enemies.compact.each do |e|
+        if SES::Bestiary.get_enemy_list.include?(e.id)
+          id, name = e.bestiary_parameter(:id), e.bestiary_parameter(:name)
+          @data << "#{id}: #{name}"
+        end
+      end
     end
   end
   
@@ -1160,7 +1172,8 @@ class Window_BestiaryEnemyList < Window_Selectable
   # Updates the help window with the number of encountered enemies.
   def update_help
     enc = $game_party.bestiary_known_data[:ene].keys.size
-    @help_window.set_text("Encountered: #{enc}/#{$data_enemies.size}")
+    text = "Encountered: #{enc}/#{SES::Bestiary.get_enemy_list.size}"
+    @help_window.set_text(text)
   end
   
   # Refreshes the window.
@@ -1205,7 +1218,7 @@ class Scene_Bestiary < Scene_Base
   # Opens the Bestiary when an enemy is selected.
   def on_item_ok
     SceneManager.call(Scene_Book)
-    SceneManager.scene.set_book(Bestiary.new(@item_window.index+1))
+    SceneManager.scene.set_book(Bestiary.new(@item_window.item.id))
   end
   
   # Sets the current enemy index.

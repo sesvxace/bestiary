@@ -1,5 +1,5 @@
 
-Bestiary v1.0 by Enelvon
+Bestiary v1.1 by Enelvon
 =============================================================================
 
 Summary
