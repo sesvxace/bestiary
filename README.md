@@ -1,5 +1,5 @@
 
-Bestiary v1.1 by Enelvon
+Bestiary v1.2 by Enelvon
 =============================================================================
 
 Summary
@@ -125,7 +125,9 @@ displayed. This is useful for bosses.
 **Replacements:**
 
 `!Type!` with the type of data you would like to hide. This can be Skills,
-Elements, or States.
+Elements, States, or Enemy. The first three hide their respective areas, while
+the last prevents the enemy from appearing in the bestiary at all and serves
+as an alternative to the HiddenEnemies array.
 
 `<Bestiary Hide Skill: !ID!>`
 

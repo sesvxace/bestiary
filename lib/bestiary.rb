@@ -1,5 +1,5 @@
 ﻿#--
-# Bestiary v1.1 by Enelvon
+# Bestiary v1.2 by Enelvon
 # =============================================================================
 # 
 # Summary
@@ -89,7 +89,9 @@
 # **Replacements:**
 # 
 # `!Type!` with the type of data you would like to hide. This can be Skills,
-# Elements, or States.
+# Elements, States, or Enemy. The first three hide their respective areas, while
+# the last prevents the enemy from appearing in the bestiary at all and serves
+# as an alternative to the HiddenEnemies array.
 # 
 # `<Bestiary Hide Skill: !ID!>`
 # 
@@ -468,7 +470,8 @@ module SES
     # represents the second database element, and so on.
     # In the case of the default database, this sets the Physical element to use
     # icon 11, the Absorb element to use icon 9, the Fire element to use icon
-    # 96, and so on.
+    # 96, and so on. Set an element's icon to nil to prevent it from being
+    # drawn.
     ElementIcons = [nil, 11, 9, 96, 97, 98, 99, 100, 101, 102, 103]
     
     # Determines the colors in which the letters corresponding to elemental
@@ -531,13 +534,15 @@ module SES
       return @list if @list
       @list = []
       $data_enemies.compact.each do |e|
-        @list << e.id if !HiddenEnemies.any? { |i| i === e.id }
+        if !HiddenEnemies.any? { |i| i === e.id } && e.bestiary_show?(:enemy)
+          @list << e.id
+        end
       end
       return @list
     end
     
     # Register this script with the SES Core.
-    Description = Script.new(:Bestiary, 1.0, :Enelvon)
+    Description = Script.new(:Bestiary, 1.2, :Enelvon)
     Register.enter(Description)
   end
 end
@@ -558,7 +563,7 @@ class RPG::Enemy < RPG::BaseItem
       proc do |offset|
         @bestiary_image_offset = offset.to_i
       end
-    tags[/^<Bestiary Hide (Skills|Elements|States)>/i] =
+    tags[/^<Bestiary Hide (Skills|Elements|States|Enemy)>/i] =
       proc do |type|
         @bestiary_show[type[0..2].downcase.to_sym] = false
       end
@@ -891,11 +896,11 @@ class Bestiary < Window_Book
     icons_per_row = (max_width / 29 + 1) * w
     x = (max_width * w - text_size('Elemental Affinities').width) / 2 + xadj
     draw_text_ex(x, @draw_y * line_height, '\c[16]Elemental Affinities')
-    @draw_y += 1 and yadj = 0
+    @draw_y += 1 and yadj = 0 and i = 1
     $data_system.elements.each_index do |e|
       next if e == 0 || !ElementIcons[e]
-      @draw_y += 1 and yadj = 4 if (e - 1) % icons_per_row == 0 && e - 1 != 0
-      row_x, row_y = (e - 1) % icons_per_row * 29, @draw_y * line_height + yadj
+      @draw_y += 1 and yadj = 4 if (i - 1) % icons_per_row == 0 && i - 1 != 0
+      row_x, row_y = (i - 1) % icons_per_row * 29, @draw_y * line_height + yadj
       draw_text_ex(row_x, row_y, "\\I[#{ElementIcons[e]}]")
       if @enemy.enemy.bestiary_show?(:ele)
         value = @enemy.element_rate(e)
@@ -910,6 +915,7 @@ class Bestiary < Window_Book
       else rate = '?' end
       draw_text_ex(row_x + 12, row_y + 4, rate)
       @draw_y = [row_y / line_height, @draw_y].max
+      i += 1
     end
   end
   
