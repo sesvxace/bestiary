@@ -1,0 +1,3 @@
+--markup markdown
+--title "SES Bestiary Documentation"
+lib/**/*.rb

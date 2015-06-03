@@ -637,7 +637,7 @@ class Game_Enemy < Game_Battler
   
   # Triggers the use of a skill by the enemy.
   #
-  # @param [RPG::Skill] the skill to be used
+  # @param item [RPG::Skill] the skill to be used
   def use_item(item)
     super
     $game_party.add_bestiary_data(@enemy_id, :ski, item.id)
