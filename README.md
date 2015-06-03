@@ -94,6 +94,9 @@ you would like the pages to be turnable.
     SceneManager.call(Scene_Bestiary)
 
 ### Enemy Note Tags:
+This script now has a Demiurge plugin! You can find the link to it in the
+thread, or in the GitHub archive. I highly recommend using that instead of
+manually configuring Note tags.
 
 `<Bestiary X Offset: !X!>`
 
