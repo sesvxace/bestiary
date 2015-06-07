@@ -970,6 +970,7 @@ class Bestiary < Window_Book
           v.include?(@id)
         end.keys
       else skills = @enemy.enemy.actions.collect {|a| a.skill_id } end
+      skills = skills.uniq # remove duplicate skill ids for duplicate actions
       skills.each do |id|
         next if @enemy.enemy.hidden_skills.include?(id)
         if RequireSkillKnown
